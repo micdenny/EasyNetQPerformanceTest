@@ -20,6 +20,11 @@ namespace EasyNetQPerformanceTest
                "Subscribe => bus.Subscribe<PerfMessage>(\"PerfTest\", message => { ... })",
                CommandOptionType.NoValue);
 
+            CommandOption rpc = commandLineApplication.Option(
+               "-r|--rpc",
+               "RPC => bus.Request+Respond<PerfRequest, PerfResponse>( ... )",
+               CommandOptionType.NoValue);
+
             CommandOption queue = commandLineApplication.Option(
                 "-q|--use-queue",
                 "When set, the test will run against a queue binded to an exchange.",
@@ -59,6 +64,11 @@ namespace EasyNetQPerformanceTest
                 if (subscribe.HasValue())
                 {
                     options.Subscribe = true;
+                }
+
+                if (rpc.HasValue())
+                {
+                    options.Rpc = true;
                 }
 
                 if (queue.HasValue())
