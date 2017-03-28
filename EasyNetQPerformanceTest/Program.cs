@@ -50,6 +50,11 @@ namespace EasyNetQPerformanceTest
                 "The number of messages to fill a pre-declared queue.",
                 CommandOptionType.SingleValue);
 
+            CommandOption concurrency = commandLineApplication.Option(
+                "-cc|--concurrency",
+                "The number of concurrent operation to execute. -1 every operation is concurrent.",
+                CommandOptionType.SingleValue);
+
             CommandOption disableCleanup = commandLineApplication.Option(
                 "--no-cleanup",
                 "Disable the cleanup after the test is done.",
@@ -95,7 +100,7 @@ namespace EasyNetQPerformanceTest
                     }
                     else
                     {
-                        commandLineApplication.Error.WriteLine($"-{count.ShortName}|--{count.LongName} must be a duration in seconds.");
+                        commandLineApplication.Error.WriteLine($"-{count.ShortName}|--{count.LongName} must be an integer number.");
                         return ParametersError;
                     }
                 }
@@ -109,7 +114,21 @@ namespace EasyNetQPerformanceTest
                     }
                     else
                     {
-                        commandLineApplication.Error.WriteLine($"-{messageCount.ShortName}|--{messageCount.LongName} must be a duration in seconds.");
+                        commandLineApplication.Error.WriteLine($"-{messageCount.ShortName}|--{messageCount.LongName} must be an integer number.");
+                        return ParametersError;
+                    }
+                }
+
+                if (concurrency.HasValue())
+                {
+                    short value;
+                    if (short.TryParse(concurrency.Value(), out value))
+                    {
+                        options.Concurrency = value;
+                    }
+                    else
+                    {
+                        commandLineApplication.Error.WriteLine($"-{concurrency.ShortName}|--{concurrency.LongName} must be a short integer number.");
                         return ParametersError;
                     }
                 }
@@ -123,7 +142,7 @@ namespace EasyNetQPerformanceTest
                     }
                     else
                     {
-                        commandLineApplication.Error.WriteLine($"-{time.ShortName}|--{time.LongName} must be a duration in seconds.");
+                        commandLineApplication.Error.WriteLine($"-{time.ShortName}|--{time.LongName} must be an integer number.");
                         return ParametersError;
                     }
                 }

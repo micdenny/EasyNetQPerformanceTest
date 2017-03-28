@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,6 +12,10 @@ namespace EasyNetQPerformanceTest.Runners
 {
     public class RpcAsyncRunner : IRunner
     {
+        private long _publishCount = 0;
+        private long _minDuration = long.MaxValue;
+        private long _maxDuration = long.MinValue;
+
         private readonly ApplicationOptions _applicationOptions;
 
         public RpcAsyncRunner(ApplicationOptions applicationOptions)
@@ -28,63 +34,95 @@ namespace EasyNetQPerformanceTest.Runners
                     return Task.FromResult(new PerfResponse());
                 });
 
-                long publishCount = 0;
-                long minDuration = long.MaxValue;
-                long maxDuration = long.MinValue;
-
                 // -------------------
                 //     PERF TEST
                 // -------------------
                 var sw = Stopwatch.StartNew();
                 if (_applicationOptions.HitsCount > 0)
                 {
-                    var swh = new Stopwatch();
-                    for (int i = 0; i < _applicationOptions.HitsCount; i++)
+                    if (_applicationOptions.Concurrency == -1)
                     {
-                        swh.Restart();
-
-                        bus.RequestAsync<PerfRequest, PerfResponse>(new PerfRequest()).Wait();
-
-                        swh.Stop();
-
-                        publishCount++;
-
-                        if (swh.ElapsedTicks < minDuration)
+                        var tasks = new List<Task>(_applicationOptions.HitsCount);
+                        for (int i = 0; i < _applicationOptions.HitsCount; i++)
                         {
-                            minDuration = swh.ElapsedTicks;
+                            tasks.Add(ProfileRequestAsync(bus));
                         }
-                        if (swh.ElapsedTicks > maxDuration)
+                        Task.WaitAll(tasks.ToArray());
+                    }
+                    else if (_applicationOptions.Concurrency == 0)
+                    {
+                        Func<Task> profile = async () =>
                         {
-                            maxDuration = swh.ElapsedTicks;
+                            for (int i = 0; i < _applicationOptions.HitsCount; i++)
+                            {
+                                await ProfileRequestAsync(bus);
+                            }
+                        };
+                        profile().Wait();
+                    }
+                    else if (_applicationOptions.Concurrency > 0)
+                    {
+                        int counter = 0;
+                        Func<Task> profile = async () =>
+                        {
+                            while (Interlocked.Increment(ref counter) <= _applicationOptions.HitsCount)
+                            {
+                                await ProfileRequestAsync(bus);
+                            }
+                        };
+                        var tasks = new List<Task>(_applicationOptions.Concurrency);
+                        for (int i = 0; i < _applicationOptions.Concurrency; i++)
+                        {
+                            tasks.Add(profile());
                         }
+                        Task.WaitAll(tasks.ToArray());
                     }
                 }
                 else if (_applicationOptions.DurationInSeconds > 0)
                 {
-                    var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_applicationOptions.DurationInSeconds));
-                    var swh = new Stopwatch();
-                    while (!cts.Token.IsCancellationRequested)
+                    if (_applicationOptions.Concurrency == -1)
                     {
-                        swh.Restart();
-
-                        bus.RequestAsync<PerfRequest, PerfResponse>(new PerfRequest()).Wait();
-
-                        swh.Stop();
-
-                        publishCount++;
-
-                        if (swh.ElapsedTicks < minDuration)
+                        // DOES THIS HAVE SENSE?
+                        var tasks = new List<Task>(_applicationOptions.HitsCount);
+                        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_applicationOptions.DurationInSeconds));
+                        while (!cts.Token.IsCancellationRequested)
                         {
-                            minDuration = swh.ElapsedTicks;
+                            tasks.Add(ProfileRequestAsync(bus));
                         }
-                        if (swh.ElapsedTicks > maxDuration)
+                        Task.WaitAll(tasks.ToArray());
+                    }
+                    else if (_applicationOptions.Concurrency == 0)
+                    {
+                        Func<Task> profile = async () =>
                         {
-                            maxDuration = swh.ElapsedTicks;
+                            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_applicationOptions.DurationInSeconds));
+                            while (!cts.Token.IsCancellationRequested)
+                            {
+                                await ProfileRequestAsync(bus);
+                            }
+                        };
+                        profile().Wait();
+                    }
+                    else if (_applicationOptions.Concurrency > 0)
+                    {
+                        Func<CancellationToken, Task> profile = async (cancellationToken) =>
+                        {
+                            while (!cancellationToken.IsCancellationRequested)
+                            {
+                                await ProfileRequestAsync(bus);
+                            }
+                        };
+                        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_applicationOptions.DurationInSeconds));
+                        var tasks = new List<Task>(_applicationOptions.Concurrency);
+                        for (int i = 0; i < _applicationOptions.Concurrency; i++)
+                        {
+                            tasks.Add(profile(cts.Token));
                         }
+                        Task.WaitAll(tasks.ToArray(), TimeSpan.FromSeconds(_applicationOptions.DurationInSeconds));
                     }
                 }
                 sw.Stop();
-                var hitsPerSecond = (int)(publishCount / sw.Elapsed.TotalSeconds);
+                var hitsPerSecond = (int)(_publishCount / sw.Elapsed.TotalSeconds);
 
                 responder.Dispose();
 
@@ -95,12 +133,34 @@ namespace EasyNetQPerformanceTest.Runners
                     bus.Advanced.QueueDelete(new Queue(queueName, false));
                 }
 
-                return new Stats(publishCount, hitsPerSecond, sw.ElapsedMilliseconds, minDuration, maxDuration);
+                return new Stats(_publishCount, hitsPerSecond, sw.ElapsedMilliseconds, _minDuration, _maxDuration);
             }
             finally
             {
                 bus.Dispose();
             }
+        }
+
+        public async Task<Stopwatch> ProfileRequestAsync(IBus bus)
+        {
+            var swh = Stopwatch.StartNew();
+
+            await bus.RequestAsync<PerfRequest, PerfResponse>(new PerfRequest());
+
+            swh.Stop();
+
+            Interlocked.Increment(ref _publishCount);
+
+            if (swh.ElapsedTicks < _minDuration)
+            {
+                Interlocked.Exchange(ref _minDuration, swh.ElapsedTicks);
+            }
+            if (swh.ElapsedTicks > _maxDuration)
+            {
+                Interlocked.Exchange(ref _maxDuration, swh.ElapsedTicks);
+            }
+
+            return swh;
         }
     }
 }
