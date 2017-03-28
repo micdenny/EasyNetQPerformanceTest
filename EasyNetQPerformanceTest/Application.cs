@@ -36,6 +36,10 @@ namespace EasyNetQPerformanceTest
                 {
                     runner = new RpcRunner(_applicationOptions);
                 }
+                else if (_applicationOptions.RpcAsync)
+                {
+                    runner = new RpcAsyncRunner(_applicationOptions);
+                }
 
                 if (runner != null)
                 {

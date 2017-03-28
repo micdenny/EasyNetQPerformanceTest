@@ -57,6 +57,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Runners\PublishRunner.cs" />
+    <Compile Include="Runners\RpcAsyncRunner.cs" />
     <Compile Include="Runners\RpcRunner.cs" />
     <Compile Include="Runners\Stats.cs" />
     <Compile Include="Runners\SubscribeRunner.cs" />

@@ -25,6 +25,11 @@ namespace EasyNetQPerformanceTest
                "RPC => bus.Request+Respond<PerfRequest, PerfResponse>( ... )",
                CommandOptionType.NoValue);
 
+            CommandOption rpcAsync = commandLineApplication.Option(
+               "-R|--rpc-async",
+               "RPC async => bus.RequestAsync+RespondAsync<PerfRequest, PerfResponse>( ... )",
+               CommandOptionType.NoValue);
+
             CommandOption queue = commandLineApplication.Option(
                 "-q|--use-queue",
                 "When set, the test will run against a queue binded to an exchange.",
@@ -69,6 +74,11 @@ namespace EasyNetQPerformanceTest
                 if (rpc.HasValue())
                 {
                     options.Rpc = true;
+                }
+
+                if (rpcAsync.HasValue())
+                {
+                    options.RpcAsync = true;
                 }
 
                 if (queue.HasValue())
