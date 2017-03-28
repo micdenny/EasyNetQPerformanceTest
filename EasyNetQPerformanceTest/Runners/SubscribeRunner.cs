@@ -20,47 +20,51 @@ namespace EasyNetQPerformanceTest.Runners
             const string subscriptionId = "PerfTest";
 
             var bus = RabbitHutch.CreateBus("host=127.0.0.1;timeout=0");
-
-            // startup
-            bus.Subscribe<PerfMessage>(subscriptionId, message => { }).Dispose();
-            for (int i = 0; i < _applicationOptions.MessageCount; i++)
+            try
             {
-                bus.Publish(new PerfMessage());
-            }
-
-            // -------------------
-            //     PERF TEST
-            // -------------------
-            var sw = Stopwatch.StartNew();
-            if (_applicationOptions.MessageCount > 0)
-            {
-                var countdown = new CountdownEvent(_applicationOptions.MessageCount);
-
-                var subscription = bus.Subscribe<PerfMessage>(subscriptionId, message =>
+                // startup
+                bus.Subscribe<PerfMessage>(subscriptionId, message => { }).Dispose();
+                for (int i = 0; i < _applicationOptions.MessageCount; i++)
                 {
-                    countdown.Signal();
-                });
+                    bus.Publish(new PerfMessage());
+                }
 
-                countdown.Wait();
+                // -------------------
+                //     PERF TEST
+                // -------------------
+                var sw = Stopwatch.StartNew();
+                if (_applicationOptions.MessageCount > 0)
+                {
+                    var countdown = new CountdownEvent(_applicationOptions.MessageCount);
 
-                subscription.Dispose();
+                    var subscription = bus.Subscribe<PerfMessage>(subscriptionId, message =>
+                    {
+                        countdown.Signal();
+                    });
+
+                    countdown.Wait();
+
+                    subscription.Dispose();
+                }
+                sw.Stop();
+                var hitsPerSecond = (int)(_applicationOptions.MessageCount / sw.Elapsed.TotalSeconds);
+
+                // clean up
+                if (_applicationOptions.CleanAfterTestDone)
+                {
+                    var queueName = bus.Advanced.Conventions.QueueNamingConvention(typeof(PerfMessage), subscriptionId);
+                    bus.Advanced.QueueDelete(new Queue(queueName, false));
+
+                    var exchangeName = bus.Advanced.Conventions.ExchangeNamingConvention(typeof(PerfMessage));
+                    bus.Advanced.ExchangeDelete(new Exchange(exchangeName));
+                }
+
+                return new Stats(_applicationOptions.MessageCount, hitsPerSecond, sw.ElapsedMilliseconds, 0, 0);
             }
-            sw.Stop();
-            var hitsPerSecond = (int)(_applicationOptions.MessageCount / sw.Elapsed.TotalSeconds);
-
-            // clean up
-            if (_applicationOptions.CleanAfterTestDone)
+            finally
             {
-                var queueName = bus.Advanced.Conventions.QueueNamingConvention(typeof(PerfMessage), subscriptionId);
-                bus.Advanced.QueueDelete(new Queue(queueName, false));
-
-                var exchangeName = bus.Advanced.Conventions.ExchangeNamingConvention(typeof(PerfMessage));
-                bus.Advanced.ExchangeDelete(new Exchange(exchangeName));
+                bus.Dispose();
             }
-
-            bus.Dispose();
-
-            return new Stats(_applicationOptions.MessageCount, hitsPerSecond, sw.ElapsedMilliseconds, 0, 0);
         }
     }
 }
