@@ -78,10 +78,42 @@ namespace EasyNetQPerformanceTest.Runners
                 }
                 else if (_applicationOptions.DurationInSeconds > 0)
                 {
-                    var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_applicationOptions.DurationInSeconds));
-                    while (!cts.Token.IsCancellationRequested)
+                    if (_applicationOptions.Concurrency == -1)
                     {
-                        ProfileRequest(bus);
+                        var tasks = new List<Task>();
+                        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_applicationOptions.DurationInSeconds));
+                        while (!cts.Token.IsCancellationRequested)
+                        {
+                            tasks.Add(Task.Run(() =>
+                            {
+                                ProfileRequest(bus);
+                            }));
+                        }
+                        Task.WaitAll(tasks.ToArray());
+                    }
+                    else if (_applicationOptions.Concurrency == 0)
+                    {
+                        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_applicationOptions.DurationInSeconds));
+                        while (!cts.Token.IsCancellationRequested)
+                        {
+                            ProfileRequest(bus);
+                        }
+                    }
+                    else if (_applicationOptions.Concurrency > 0)
+                    {
+                        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_applicationOptions.DurationInSeconds));
+                        var tasks = new List<Task>(_applicationOptions.Concurrency);
+                        for (int i = 0; i < _applicationOptions.Concurrency; i++)
+                        {
+                            tasks.Add(Task.Factory.StartNew(() =>
+                            {
+                                while (!cts.Token.IsCancellationRequested)
+                                {
+                                    ProfileRequest(bus);
+                                }
+                            }, TaskCreationOptions.LongRunning));
+                        }
+                        Task.WaitAll(tasks.ToArray(), TimeSpan.FromSeconds(_applicationOptions.DurationInSeconds));
                     }
                 }
                 sw.Stop();
