@@ -82,8 +82,7 @@ namespace EasyNetQPerformanceTest.Runners
                 {
                     if (_applicationOptions.Concurrency == -1)
                     {
-                        // DOES THIS HAVE SENSE?
-                        var tasks = new List<Task>(_applicationOptions.HitsCount);
+                        var tasks = new List<Task>();
                         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_applicationOptions.DurationInSeconds));
                         while (!cts.Token.IsCancellationRequested)
                         {
