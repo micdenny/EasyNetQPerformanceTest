@@ -1,11 +1,18 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.26228.9
+VisualStudioVersion = 15.0.26403.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasyNetQPerformanceTest.Contract", "EasyNetQPerformanceTest.Contract\EasyNetQPerformanceTest.Contract.csproj", "{10099CBB-FAC4-4B9A-96FF-B440759BBCB5}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasyNetQPerformanceTest", "EasyNetQPerformanceTest\EasyNetQPerformanceTest.csproj", "{0E25E515-B857-4B0A-9D70-CE5C46A22BA5}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{2A596994-02D0-4230-9B5F-3C20EFFA714F}"
+	ProjectSection(SolutionItems) = preProject
+		run-test-cases.bat = run-test-cases.bat
+		Test Cases.md = Test Cases.md
+		test-cases.bat = test-cases.bat
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
